@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    env:
+      TMPDIR: ${{ runner.temp }}
+      SITES_HUB_DATA_DIR: ${{ runner.temp }}/sites-hub-data
+      SITES_HUB_REGISTRY: sites.example.yaml
+      SITES_HUB_SESSION_SECRET_FILE: ${{ runner.temp }}/sites-hub-session-secret
+      SITES_HUB_AUTH_CACHE_FILE: ${{ runner.temp }}/sites-hub-auth-cache.json
+      SITES_HUB_AUTH_DB: ${{ runner.temp }}/sites-hub-accounts.sqlite3
+      SITES_HUB_PUBLIC_HOST: sites.example.com
+      SITES_HUB_DISCOVERY_ENABLED: "false"
+      SITES_HUB_PROBES_ENABLED: "false"
+      SITES_HUB_EXPOSE_INTERNALS: "false"
+      SITES_HUB_ALLOW_PRIVATE_HTTP: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        run: python -m pip install --disable-pip-version-check uv==0.11.18
+      - name: Install locked dependencies
+        run: uv sync --locked --group dev
+      - name: Lint
+        run: uv run ruff check .
+      - name: Compile source
+        run: uv run python -m compileall -q app
+      - name: Run offline tests
+        run: uv run pytest -q
+      - name: Run synthetic smoke test
+        run: ./scripts/smoke_test.sh
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TMPDIR: ${{ runner.temp }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.11"
+      - name: Install audit tools
+        run: python -m pip install --disable-pip-version-check uv==0.11.18 pip-audit==2.10.1
+      - name: Export all locked dependencies
+        run: uv export --locked --all-groups --no-emit-project --format requirements-txt --output-file "${RUNNER_TEMP}/requirements.txt"
+      - name: Audit locked dependencies
+        run: pip-audit --requirement "${RUNNER_TEMP}/requirements.txt"
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"

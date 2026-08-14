@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0a1323">
+  <title>{{ site.name|default(site.id|default('網站詳情', true), true) }}｜網站總控中心</title>
+  <meta name="description" content="{{ site.description|default('網站與服務健康狀態詳情') }}">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body data-page="site-detail" data-refresh-seconds="30">
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="返回網站總控中心">
+      <span class="brand-mark" aria-hidden="true">
+        <i></i><i></i><i></i>
+      </span>
+      <span>
+        <strong>網站總控中心</strong>
+        <small>AllenFu Service Observatory</small>
+      </span>
+    </a>
+
+    <div class="topbar-meta">
+      <span class="read-only-badge">
+        <span class="status-dot status-dot--quiet" aria-hidden="true"></span>
+        唯讀模式
+      </span>
+      <span class="sync-meta">
+        <span>資料時間</span>
+        <time datetime="{{ generated_at|default('') }}">{{ generated_at|default('尚未產生') }}</time>
+      </span>
+      <span class="refresh-meta" aria-label="頁面每 30 秒自動更新">
+        <span class="refresh-ring" aria-hidden="true"></span>
+        <span data-refresh-label>30 秒後更新</span>
+      </span>
+      <a class="logout-link" href="/logout">登出</a>
+    </div>
+  </header>
+
+  {% set raw_status = site.status|default('unknown', true)|lower %}
+  {% if raw_status in ['healthy', 'normal', 'ok', 'online', '正常'] %}
+    {% set status_class = 'normal' %}{% set fallback_status_label = '正常' %}
+  {% elif raw_status in ['partial', 'degraded', 'warning', '部分異常'] %}
+    {% set status_class = 'partial' %}{% set fallback_status_label = '部分異常' %}
+  {% elif raw_status in ['offline', 'down', 'failed', '離線'] %}
+    {% set status_class = 'offline' %}{% set fallback_status_label = '離線' %}
+  {% else %}
+    {% set status_class = 'unknown' %}{% set fallback_status_label = '未知' %}
+  {% endif %}
+  {% set status_label = site.status_label|default(fallback_status_label, true) %}
+  {% set site_urls = site.urls|default([], true) %}
+  {% set components = site.components|default([], true) %}
+  {% set checks = site.checks|default([], true) %}
+  {% set dependencies = site.dependencies|default(components, true) %}
+
+  <main id="main-content" class="detail-main">
+    <nav class="breadcrumb" aria-label="麵包屑">
+      <a href="/">網站與服務</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{{ site.name|default(site.id|default('未命名項目', true), true) }}</span>
+    </nav>
+
+    <section class="detail-hero status-surface--{{ status_class }}" aria-labelledby="site-title">
+      <div class="detail-hero__main">
+        <div class="detail-monogram" aria-hidden="true">
+          {{ site.name|default(site.id|default('?', true), true)|first|upper }}
+        </div>
+        <div>
+          <div class="detail-kickers">
+            <span>{{ site.category_label|default(site.category|default('其他', true), true) }}</span>
+            <span>{{ site.visibility|default('未標示可見性', true) }}</span>
+            {% if site.is_candidate|default(false) %}
+              <span class="lifecycle-tag lifecycle-tag--pending">待確認</span>
+            {% elif site.lifecycle|default('')|lower in ['archived', 'undeployed', 'retired'] %}
+              <span class="lifecycle-tag lifecycle-tag--archive">未部署／封存</span>
+            {% endif %}
+          </div>
+          <h1 id="site-title">{{ site.name|default(site.id|default('未命名項目', true), true) }}</h1>
+          <p>{{ site.description|default('尚未補充此項目的用途說明。', true) }}</p>
+        </div>
+      </div>
+
+      <div class="detail-health">
+        <span class="status-badge status-badge--{{ status_class }}">
+          <i aria-hidden="true"></i>{{ status_label }}
+        </span>
+        <div class="detail-health__metric">
+          <strong>{{ site.uptime_90d|default('—', true) }}{% if site.uptime_90d is defined and site.uptime_90d is not none %}%{% endif %}</strong>
+          <span>90 天可用率</span>
+        </div>
+        <div class="detail-health__metric">
+          <strong>{{ site.uptime_24h|default('—', true) }}{% if site.uptime_24h is defined and site.uptime_24h is not none %}%{% endif %}</strong>
+          <span>24 小時可用率</span>
+        </div>
+        <div class="detail-health__checked">
+          <span>最近檢查</span>
+          <time datetime="{{ site.last_checked_at|default('') }}">
+            {{ site.last_checked_display|default(site.last_checked_at|default('尚未檢查', true), true) }}
+          </time>
+        </div>
+      </div>
+    </section>
+
+    <div class="detail-layout">
+      <div class="detail-primary">
+        <section class="panel" aria-labelledby="history-title">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker section-kicker--dark">RELIABILITY</p>
+              <h2 id="history-title">90 天健康紀錄</h2>
+            </div>
+            <div class="history-legend" aria-label="健康紀錄圖例">
+              <span><i class="legend-dot legend-dot--normal"></i>正常</span>
+              <span><i class="legend-dot legend-dot--partial"></i>部分異常</span>
+              <span><i class="legend-dot legend-dot--offline"></i>離線</span>
+              <span><i class="legend-dot legend-dot--unknown"></i>未知</span>
+            </div>
+          </div>
+
+          {% if history|default([]) %}
+            <div class="history-viewport" role="region" aria-label="可橫向捲動的 90 天健康紀錄" tabindex="0">
+              <div class="history-grid" role="img" aria-label="最近 90 天服務狀態，每格代表一個時間區段">
+                {% for entry in history %}
+                  {% set entry_status = entry.status|default('unknown', true)|lower %}
+                  {% if entry_status in ['healthy', 'normal', 'ok', 'online', '正常'] %}
+                    {% set entry_class = 'normal' %}{% set entry_label = '正常' %}
+                  {% elif entry_status in ['partial', 'degraded', 'warning', '部分異常'] %}
+                    {% set entry_class = 'partial' %}{% set entry_label = '部分異常' %}
+                  {% elif entry_status in ['offline', 'down', 'failed', '離線'] %}
+                    {% set entry_class = 'offline' %}{% set entry_label = '離線' %}
+                  {% else %}
+                    {% set entry_class = 'unknown' %}{% set entry_label = '未知' %}
+                  {% endif %}
+                  <span class="history-cell history-cell--{{ entry_class }}"
+                        title="{{ entry.bucket|default('未知時間') }}：{{ entry_label }}"
+                        aria-label="{{ entry.bucket|default('未知時間') }}，{{ entry_label }}"></span>
+                {% endfor %}
+              </div>
+              <div class="history-axis" aria-hidden="true">
+                <span>90 天前</span><span>60 天前</span><span>30 天前</span><span>今天</span>
+              </div>
+            </div>
+            <p class="mobile-scroll-hint" aria-hidden="true">← 左右滑動查看完整 90 天 →</p>
+          {% else %}
+            <div class="panel-empty">
+              <span class="panel-empty__bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <p>尚未累積足夠的健康紀錄</p>
+            </div>
+          {% endif %}
+        </section>
+
+        <section class="panel" aria-labelledby="dependency-title">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker section-kicker--dark">SERVICE PATH</p>
+              <h2 id="dependency-title">依賴鏈</h2>
+            </div>
+            <p class="panel-head__note">由來源端到對外入口</p>
+          </div>
+
+          {% if dependencies %}
+            <ol class="dependency-chain">
+              {% for dependency in dependencies %}
+                {% set dep_raw = dependency.status|default('unknown', true)|lower if dependency.status is defined else 'unknown' %}
+                {% if dep_raw in ['healthy', 'normal', 'ok', 'online', '正常'] %}
+                  {% set dep_class = 'normal' %}{% set dep_label = '正常' %}
+                {% elif dep_raw in ['partial', 'degraded', 'warning', '部分異常'] %}
+                  {% set dep_class = 'partial' %}{% set dep_label = '部分異常' %}
+                {% elif dep_raw in ['offline', 'down', 'failed', '離線'] %}
+                  {% set dep_class = 'offline' %}{% set dep_label = '離線' %}
+                {% else %}
+                  {% set dep_class = 'unknown' %}{% set dep_label = '未知' %}
+                {% endif %}
+                <li>
+                  <span class="dependency-node dependency-node--{{ dep_class }}">
+                    <i aria-hidden="true"></i>
+                    <span>
+                      <small>{{ dependency.kind|default(dependency.platform|default('元件', true), true) if dependency.kind is defined or dependency.platform is defined else '元件' }}</small>
+                      <strong>{{ dependency.name|default(dependency, true) }}</strong>
+                      <em>{{ dependency.status_label|default(dep_label, true) if dependency.status_label is defined else dep_label }}</em>
+                    </span>
+                  </span>
+                  {% if not loop.last %}<span class="dependency-arrow" aria-hidden="true">→</span>{% endif %}
+                </li>
+              {% endfor %}
+            </ol>
+          {% else %}
+            <div class="panel-empty panel-empty--compact"><p>尚未登錄依賴鏈資料</p></div>
+          {% endif %}
+        </section>
+
+        <section class="panel" aria-labelledby="checks-title">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker section-kicker--dark">LATEST CHECKS</p>
+              <h2 id="checks-title">最近檢查</h2>
+            </div>
+            <p class="panel-head__note">{{ checks|length }} 個檢查項目</p>
+          </div>
+
+          {% if checks %}
+            <div class="check-list" role="table" aria-label="最近檢查結果">
+              <div class="check-list__head" role="row">
+                <span role="columnheader">檢查</span>
+                <span role="columnheader">目標</span>
+                <span role="columnheader">狀態</span>
+                <span role="columnheader">延遲</span>
+                <span role="columnheader">時間</span>
+              </div>
+              {% for check in checks %}
+                {% set check_raw = check.status|default('unknown', true)|lower %}
+                {% if check_raw in ['healthy', 'normal', 'ok', 'online', '正常'] %}
+                  {% set check_class = 'normal' %}{% set check_fallback_label = '正常' %}
+                {% elif check_raw in ['partial', 'degraded', 'warning', '部分異常'] %}
+                  {% set check_class = 'partial' %}{% set check_fallback_label = '部分異常' %}
+                {% elif check_raw in ['offline', 'down', 'failed', '離線'] %}
+                  {% set check_class = 'offline' %}{% set check_fallback_label = '離線' %}
+                {% else %}
+                  {% set check_class = 'unknown' %}{% set check_fallback_label = '未知' %}
+                {% endif %}
+                <article class="check-row" role="row">
+                  <div role="cell" data-label="檢查">
+                    <strong>{{ check.name|default('未命名檢查', true) }}</strong>
+                    {% if check.detail %}<small>{{ check.detail }}</small>{% endif %}
+                  </div>
+                  <div role="cell" data-label="目標">
+                    <span class="check-target">{{ check.target|default('—', true)|truncate(45, true, '…') }}</span>
+                  </div>
+                  <div role="cell" data-label="狀態">
+                    <span class="status-badge status-badge--{{ check_class }}">
+                      <i aria-hidden="true"></i>{{ check.status_label|default(check_fallback_label, true) }}
+                    </span>
+                  </div>
+                  <div role="cell" data-label="延遲">
+                    {% if check.latency_ms is defined and check.latency_ms is not none %}
+                      <strong class="latency-value">{{ check.latency_ms }} <small>ms</small></strong>
+                    {% else %}<span class="muted-value">—</span>{% endif %}
+                  </div>
+                  <div role="cell" data-label="時間">
+                    <time datetime="{{ check.checked_at|default('') }}">{{ check.checked_at|default('尚未檢查', true) }}</time>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="panel-empty panel-empty--compact"><p>尚未產生檢查結果</p></div>
+          {% endif %}
+        </section>
+      </div>
+
+      <aside class="detail-sidebar" aria-label="網站基本資料">
+        <section class="panel side-panel" aria-labelledby="entry-title">
+          <div class="panel-head panel-head--compact">
+            <div>
+              <p class="section-kicker section-kicker--dark">ENDPOINTS</p>
+              <h2 id="entry-title">網址入口</h2>
+            </div>
+          </div>
+          {% if site_urls %}
+            <ul class="endpoint-list">
+              {% for endpoint in site_urls %}
+                {% set endpoint_url = endpoint.url if endpoint.url is defined else endpoint %}
+                <li>
+                  <span>
+                    <small>{{ endpoint.label|default('網站入口', true) if endpoint.label is defined else '網站入口' }}</small>
+                    <a href="{{ endpoint_url }}" target="_blank" rel="noopener noreferrer">
+                      {{ endpoint_url|replace('https://', '')|replace('http://', '')|truncate(42, true, '…') }}
+                    </a>
+                  </span>
+                  <i aria-hidden="true">↗</i>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="side-empty">此項目沒有公開網址。</p>
+          {% endif %}
+        </section>
+
+        <section class="panel side-panel" aria-labelledby="facts-title">
+          <div class="panel-head panel-head--compact">
+            <div>
+              <p class="section-kicker section-kicker--dark">INVENTORY</p>
+              <h2 id="facts-title">清冊資料</h2>
+            </div>
+          </div>
+          <dl class="facts-list">
+            <div><dt>資產 ID</dt><dd><code>{{ site.id|default('—', true) }}</code></dd></div>
+            <div><dt>分類</dt><dd>{{ site.category_label|default(site.category|default('其他', true), true) }}</dd></div>
+            <div><dt>生命週期</dt><dd>{{ site.lifecycle|default('未標示', true) }}</dd></div>
+            <div><dt>可見性</dt><dd>{{ site.visibility|default('未標示', true) }}</dd></div>
+            <div><dt>元件數</dt><dd>{{ components|length }}</dd></div>
+            <div><dt>檢查數</dt><dd>{{ checks|length }}</dd></div>
+          </dl>
+        </section>
+
+        <section class="panel side-panel" aria-labelledby="sources-title">
+          <div class="panel-head panel-head--compact">
+            <div>
+              <p class="section-kicker section-kicker--dark">SOURCE</p>
+              <h2 id="sources-title">原始位置</h2>
+            </div>
+          </div>
+          {% if site.source_paths|default([]) %}
+            <ul class="source-list">
+              {% for source_path in site.source_paths %}
+                <li><code>{{ source_path }}</code></li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="side-empty">尚未登錄原始碼位置。</p>
+          {% endif %}
+        </section>
+
+        <section class="panel side-panel" aria-labelledby="components-title">
+          <div class="panel-head panel-head--compact">
+            <div>
+              <p class="section-kicker section-kicker--dark">COMPONENTS</p>
+              <h2 id="components-title">服務元件</h2>
+            </div>
+          </div>
+          {% if components %}
+            <ul class="component-list">
+              {% for component in components %}
+                {% set component_raw = component.status|default('unknown', true)|lower %}
+                {% if component_raw in ['healthy', 'normal', 'ok', 'online', '正常'] %}
+                  {% set component_class = 'normal' %}{% set component_label = '正常' %}
+                {% elif component_raw in ['partial', 'degraded', 'warning', '部分異常'] %}
+                  {% set component_class = 'partial' %}{% set component_label = '部分異常' %}
+                {% elif component_raw in ['offline', 'down', 'failed', '離線'] %}
+                  {% set component_class = 'offline' %}{% set component_label = '離線' %}
+                {% else %}
+                  {% set component_class = 'unknown' %}{% set component_label = '未知' %}
+                {% endif %}
+                <li>
+                  <span class="component-status component-status--{{ component_class }}" aria-hidden="true"></span>
+                  <span>
+                    <strong>{{ component.name|default('未命名元件', true) }}</strong>
+                    <small>{{ component.platform|default('未知平台', true) }} · {{ component.kind|default('服務', true) }}</small>
+                    {% if component.detail %}<em>{{ component.detail }}</em>{% endif %}
+                  </span>
+                  <small>{{ component.status_label|default(component_label, true) }}</small>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="side-empty">尚未登錄服務元件。</p>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>Site Observatory · 僅供檢視，不執行部署、重啟或設定變更。</p>
+    <p>自動更新間隔 30 秒</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0a1323">
+  <title>網站總控中心｜AllenFu</title>
+  <meta name="description" content="集中檢視網站、服務、Tunnel 與基礎元件的唯讀維運儀表板。">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body data-page="dashboard" data-refresh-seconds="30">
+  <a class="skip-link" href="#main-content">跳到主要內容</a>
+
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="網站總控中心首頁">
+      <span class="brand-mark" aria-hidden="true">
+        <i></i><i></i><i></i>
+      </span>
+      <span>
+        <strong>網站總控中心</strong>
+        <small>AllenFu Service Observatory</small>
+      </span>
+    </a>
+
+    <div class="topbar-meta">
+      <span class="read-only-badge">
+        <span class="status-dot status-dot--quiet" aria-hidden="true"></span>
+        唯讀模式
+      </span>
+      <span class="sync-meta">
+        <span>資料時間</span>
+        <time datetime="{{ generated_at|default('') }}">{{ generated_at|default('尚未產生') }}</time>
+      </span>
+      <span class="refresh-meta" aria-label="頁面每 30 秒自動更新">
+        <span class="refresh-ring" aria-hidden="true"></span>
+        <span data-refresh-label>30 秒後更新</span>
+      </span>
+      <a class="logout-link" href="/logout">登出</a>
+    </div>
+  </header>
+
+  <main id="main-content">
+    {% set total_count = summary.total|default(sites|length, true) %}
+    {% set normal_count = summary.normal|default(summary.healthy|default(summary.ok|default(0, true), true), true) %}
+    {% set partial_count = summary.partial|default(summary.degraded|default(0, true), true) %}
+    {% set offline_count = summary.offline|default(summary.down|default(0, true), true) %}
+    {% set unknown_count = summary.unknown|default(0, true) %}
+    {% set candidate_count = summary.candidates|default(summary.pending|default(0, true), true) %}
+    {% set archived_count = summary.archived|default(0, true) %}
+
+    <section class="overview-shell" aria-labelledby="overview-title">
+      <div class="overview-copy">
+        <p class="eyebrow"><span></span> SERVICE PORTFOLIO</p>
+        <h1 id="overview-title">整個網站環境，<br><em>一眼掌握。</em></h1>
+        <p>集中查看公開網站、內部工具與背後元件的即時狀態。此頁只呈現資訊，不會改動任何服務。</p>
+        <div class="overview-facts" aria-label="資產摘要">
+          <span><b>{{ total_count }}</b> 已登錄資產</span>
+          <span><b>{{ candidate_count }}</b> 待確認</span>
+          <span><b>{{ archived_count }}</b> 未部署／封存</span>
+        </div>
+      </div>
+
+      <div class="health-overview">
+        <div class="health-heading">
+          <div>
+            <p class="section-kicker">即時健康狀態</p>
+            <h2>{{ normal_count }} / {{ total_count }} 項正常</h2>
+          </div>
+          <span class="health-pulse" aria-hidden="true"></span>
+        </div>
+
+        <div class="summary-grid" aria-label="依狀態篩選">
+          <button class="summary-card summary-card--normal" type="button" data-status-filter="normal" aria-pressed="false">
+            <span class="summary-card__top">
+              <span class="status-icon" aria-hidden="true"></span>
+              <small>正常</small>
+            </span>
+            <strong>{{ normal_count }}</strong>
+            <span>必要檢查皆通過</span>
+          </button>
+          <button class="summary-card summary-card--partial" type="button" data-status-filter="partial" aria-pressed="false">
+            <span class="summary-card__top">
+              <span class="status-icon" aria-hidden="true"></span>
+              <small>部分異常</small>
+            </span>
+            <strong>{{ partial_count }}</strong>
+            <span>仍可用但需留意</span>
+          </button>
+          <button class="summary-card summary-card--offline" type="button" data-status-filter="offline" aria-pressed="false">
+            <span class="summary-card__top">
+              <span class="status-icon" aria-hidden="true"></span>
+              <small>離線</small>
+            </span>
+            <strong>{{ offline_count }}</strong>
+            <span>必要入口無回應</span>
+          </button>
+          <button class="summary-card summary-card--unknown" type="button" data-status-filter="unknown" aria-pressed="false">
+            <span class="summary-card__top">
+              <span class="status-icon" aria-hidden="true"></span>
+              <small>未知</small>
+            </span>
+            <strong>{{ unknown_count }}</strong>
+            <span>尚無足夠檢查資料</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace" aria-labelledby="portfolio-title">
+      <div class="workspace-head">
+        <div>
+          <p class="section-kicker section-kicker--dark">資產清冊</p>
+          <h2 id="portfolio-title">網站與服務</h2>
+          <p>依類型、生命週期或健康狀態快速縮小範圍。</p>
+        </div>
+
+        <label class="search-box" for="site-search">
+          <span class="search-icon" aria-hidden="true"></span>
+          <span class="sr-only">搜尋網站、網址或技術</span>
+          <input id="site-search" type="search" inputmode="search" autocomplete="off"
+                 placeholder="搜尋名稱、網址、技術…（按 /）" data-site-search>
+          <kbd aria-hidden="true">/</kbd>
+        </label>
+      </div>
+
+      <div class="filter-bar" aria-label="資產分類">
+        <div class="filter-scroll" role="group" aria-label="依分類篩選">
+          <button class="filter-chip is-active" type="button" data-category-filter="all" aria-pressed="true">
+            全部 <span>{{ total_count }}</span>
+          </button>
+          {% for category in categories|default([]) %}
+            {% set category_value = category.value if category.value is defined else (category.id if category.id is defined else category) %}
+            {% set category_label = category.label if category.label is defined else category %}
+            <button class="filter-chip" type="button" data-category-filter="{{ category_value }}" aria-pressed="false">
+              {{ category_label }}
+              {% if category.count is defined %}<span>{{ category.count }}</span>{% endif %}
+            </button>
+          {% endfor %}
+          <span class="filter-divider" aria-hidden="true"></span>
+          <button class="filter-chip filter-chip--pending" type="button" data-scope-filter="candidate" aria-pressed="false">
+            待確認 <span>{{ candidate_count }}</span>
+          </button>
+          <button class="filter-chip filter-chip--archive" type="button" data-scope-filter="archived" aria-pressed="false">
+            未部署／封存 <span>{{ archived_count }}</span>
+          </button>
+        </div>
+        <button class="clear-filter" type="button" data-clear-filters hidden>清除篩選</button>
+      </div>
+
+      <div class="list-meta">
+        <p data-results-label aria-live="polite">顯示 {{ sites|length }} 個項目</p>
+        <div class="legend" aria-label="狀態圖例">
+          <span><i class="legend-dot legend-dot--normal"></i>正常</span>
+          <span><i class="legend-dot legend-dot--partial"></i>部分異常</span>
+          <span><i class="legend-dot legend-dot--offline"></i>離線</span>
+          <span><i class="legend-dot legend-dot--unknown"></i>未知</span>
+        </div>
+      </div>
+
+      <div class="site-list" role="table" aria-label="網站與服務清單">
+        <div class="site-list__head" role="row">
+          <span role="columnheader">網站／服務</span>
+          <span role="columnheader">狀態</span>
+          <span role="columnheader">類型</span>
+          <span role="columnheader">主要入口</span>
+          <span role="columnheader">最近檢查</span>
+          <span role="columnheader"><span class="sr-only">查看詳情</span></span>
+        </div>
+
+        <div class="site-list__body">
+          {% for site in sites %}
+            {% set raw_status = site.status|default('unknown', true)|lower %}
+            {% if raw_status in ['healthy', 'normal', 'ok', 'online', '正常'] %}
+              {% set status_class = 'normal' %}{% set status_label = '正常' %}
+            {% elif raw_status in ['partial', 'degraded', 'warning', '部分異常'] %}
+              {% set status_class = 'partial' %}{% set status_label = '部分異常' %}
+            {% elif raw_status in ['offline', 'down', 'failed', '離線'] %}
+              {% set status_class = 'offline' %}{% set status_label = '離線' %}
+            {% else %}
+              {% set status_class = 'unknown' %}{% set status_label = '未知' %}
+            {% endif %}
+            {% set category_key = site.category_id|default(site.category|default('other', true), true) %}
+            {% set category_label = site.category_label|default(site.category|default('其他', true), true) %}
+            {% set lifecycle_key = site.lifecycle|default(site.stage|default('production', true), true)|lower %}
+            {% set is_candidate = lifecycle_key in ['candidate', 'pending', '待確認'] or site.is_candidate|default(false) %}
+            {% set is_archived = lifecycle_key in ['archived', 'undeployed', 'retired', '未部署', '封存'] %}
+            {% set site_urls = site.urls|default([], true) %}
+            {% if site_urls %}
+              {% set first_endpoint = site_urls[0] %}
+              {% set primary_url = first_endpoint.url if first_endpoint.url is defined else first_endpoint %}
+            {% else %}
+              {% set primary_url = '' %}
+            {% endif %}
+            {% set technology = site.technology|default(site.tech|default(site.visibility|default('', true), true), true) %}
+            <article class="site-row"
+                     role="row"
+                     data-site-row
+                     data-status="{{ status_class }}"
+                     data-category="{{ category_key|lower }}"
+                     data-lifecycle="{{ lifecycle_key }}"
+                     data-candidate="{{ 'true' if is_candidate else 'false' }}"
+                     data-archived="{{ 'true' if is_archived else 'false' }}"
+                     data-search="{{ (site.name|default('') ~ ' ' ~ site.id|default('') ~ ' ' ~ site.description|default('') ~ ' ' ~ primary_url ~ ' ' ~ technology ~ ' ' ~ category_label)|lower }}">
+              <div class="site-identity" role="cell">
+                <span class="service-monogram" aria-hidden="true">{{ site.name|default(site.id|default('?', true), true)|first|upper }}</span>
+                <span class="site-identity__copy">
+                  <a href="/sites/{{ site.id }}" aria-label="查看 {{ site.name|default(site.id) }} 詳情">
+                    {{ site.name|default(site.id|default('未命名項目', true), true) }}
+                  </a>
+                  <small>
+                    {% if is_candidate %}<span class="lifecycle-tag lifecycle-tag--pending">待確認</span>{% endif %}
+                    {% if is_archived %}<span class="lifecycle-tag lifecycle-tag--archive">未部署／封存</span>{% endif %}
+                    {% if technology %}<span>{{ technology }}</span>{% else %}<span>{{ site.id }}</span>{% endif %}
+                  </small>
+                </span>
+              </div>
+
+              <div role="cell" data-label="狀態">
+                <span class="status-badge status-badge--{{ status_class }}">
+                  <i aria-hidden="true"></i>{{ site.status_label|default(status_label, true) }}
+                </span>
+                {% if site.latency_ms is defined and site.latency_ms is not none %}
+                  <small class="cell-note">{{ site.latency_ms }} ms</small>
+                {% endif %}
+              </div>
+
+              <div role="cell" data-label="類型">
+                <span class="category-label">{{ category_label }}</span>
+                {% if site.runtime is defined %}<small class="cell-note">{{ site.runtime }}</small>{% endif %}
+              </div>
+
+              <div class="url-cell" role="cell" data-label="主要入口">
+                {% if primary_url %}
+                  <a href="{{ primary_url }}" target="_blank" rel="noopener noreferrer">
+                    <span>{{ primary_url|replace('https://', '')|replace('http://', '')|truncate(34, true, '…') }}</span>
+                    <i aria-hidden="true">↗</i>
+                  </a>
+                {% else %}
+                  <span class="muted-value">僅內部／無公開網址</span>
+                {% endif %}
+              </div>
+
+              <div role="cell" data-label="最近檢查">
+                <time datetime="{{ site.last_checked_at|default('') }}">
+                  {{ site.last_checked_display|default(site.last_checked_at|default('尚未檢查', true), true) }}
+                </time>
+                {% if site.uptime_90d is defined and site.uptime_90d is not none %}
+                  <small class="cell-note">90 天 {{ site.uptime_90d }}%</small>
+                {% endif %}
+              </div>
+
+              <div class="row-action" role="cell">
+                <a href="/sites/{{ site.id }}" aria-label="查看 {{ site.name|default(site.id) }} 完整狀態">
+                  <span>詳情</span><i aria-hidden="true">→</i>
+                </a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="empty-state" data-empty-state hidden>
+        <span class="empty-state__mark" aria-hidden="true"></span>
+        <h3>找不到符合條件的項目</h3>
+        <p>調整搜尋文字或分類即可查看其他資產。</p>
+        <button type="button" data-clear-filters>清除所有篩選</button>
+      </div>
+
+      {% if candidates|default([]) %}
+        <details class="candidate-panel"
+                 data-candidate-panel
+                 data-candidate-count="{{ candidates|length }}">
+          <summary>
+            <span class="candidate-panel__signal" aria-hidden="true"><i></i></span>
+            <span class="candidate-panel__heading">
+              <strong>待確認項目 <em>{{ candidates|length }}</em></strong>
+              <small>自動探索找到、尚未納入正式清冊的網站或服務</small>
+            </span>
+            <span class="candidate-panel__toggle">
+              <span class="candidate-panel__closed">展開檢視</span>
+              <span class="candidate-panel__open">收合項目</span>
+              <i aria-hidden="true"></i>
+            </span>
+          </summary>
+
+          <div class="candidate-panel__content">
+            <p class="candidate-notice">
+              這些項目只供盤點參考。加入正式清冊前，不會被當成上線服務，也不會執行任何操作。
+            </p>
+            <div class="candidate-grid">
+              {% for candidate in candidates %}
+                {% set candidate_kind = candidate.kind|default('unknown', true)|lower %}
+                {% if candidate_kind == 'project' %}
+                  {% set candidate_kind_label = '程式專案' %}
+                {% elif candidate_kind in ['systemd_user', 'systemd_system'] %}
+                  {% set candidate_kind_label = 'systemd 服務' %}
+                {% elif candidate_kind == 'docker' %}
+                  {% set candidate_kind_label = 'Docker 容器' %}
+                {% elif candidate_kind == 'hostname' %}
+                  {% set candidate_kind_label = '公開網域' %}
+                {% else %}
+                  {% set candidate_kind_label = candidate.kind|default('未知來源', true) %}
+                {% endif %}
+                {% set candidate_target = candidate.target|default('', true) %}
+                <article class="candidate-card">
+                  <div class="candidate-card__top">
+                    <span class="candidate-kind candidate-kind--{{ candidate_kind }}">
+                      {{ candidate_kind_label }}
+                    </span>
+                    <span class="candidate-seen">
+                      最後發現
+                      <time datetime="{{ candidate.last_seen_at|default('') }}">
+                        {{ candidate.last_seen_at|default('未知', true) }}
+                      </time>
+                    </span>
+                  </div>
+                  <h3>{{ candidate.name|default('未命名項目', true) }}</h3>
+                  <div class="candidate-target">
+                    {% if candidate_target[:4]|lower == 'http' %}
+                      <a href="{{ candidate_target }}" target="_blank" rel="noopener noreferrer">
+                        {{ candidate_target }} <span aria-hidden="true">↗</span>
+                      </a>
+                    {% else %}
+                      <code>{{ candidate_target|default('未提供目標', true) }}</code>
+                    {% endif %}
+                  </div>
+
+                  {% if candidate.detail|default({}) %}
+                    <dl class="candidate-detail">
+                      {% for key, value in candidate.detail.items() %}
+                        <div>
+                          <dt>{{ key|replace('_', ' ') }}</dt>
+                          <dd>
+                            {% if value is sequence and value is not string %}
+                              {{ value|join(', ') }}
+                            {% else %}
+                              {{ value }}
+                            {% endif %}
+                          </dd>
+                        </div>
+                      {% endfor %}
+                    </dl>
+                  {% endif %}
+
+                  <div class="candidate-card__foot">
+                    <span>首次發現</span>
+                    <time datetime="{{ candidate.first_seen_at|default('') }}">
+                      {{ candidate.first_seen_at|default('未知', true) }}
+                    </time>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          </div>
+        </details>
+      {% endif %}
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Site Observatory · 僅供檢視，不執行部署、重啟或設定變更。</p>
+    <p>自動更新間隔 30 秒</p>
+  </footer>
+</body>
+</html>

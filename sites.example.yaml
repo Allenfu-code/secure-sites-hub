@@ -1,0 +1,55 @@
+version: 1
+sites:
+  - id: example-storefront
+    name: Example Storefront
+    description: Synthetic public service used for local development and screenshots.
+    category: public
+    lifecycle: production
+    visibility: public
+    urls:
+      - url: https://example.com
+        label: Public site
+        required: true
+    source_paths:
+      - /srv/example-storefront
+    dependencies:
+      - Synthetic CDN
+    components:
+      - id: storefront-origin
+        name: Storefront origin
+        platform: wsl
+        kind: systemd_user
+        target: example-storefront.service
+        required: false
+    notes: Synthetic data only; no production topology is included.
+
+  - id: example-api
+    name: Example API
+    description: Synthetic protected API with an optional loopback component.
+    category: api
+    lifecycle: development
+    visibility: protected
+    urls: []
+    source_paths:
+      - /srv/example-api
+    dependencies:
+      - Synthetic database
+    components:
+      - id: api-origin
+        name: API origin
+        platform: wsl
+        kind: wsl_port
+        target: "9123"
+        required: false
+    notes: This entry exists only to exercise the redacted public DTO.
+
+  - id: example-archive
+    name: Archived Prototype
+    description: Synthetic archived entry used to demonstrate lifecycle filtering.
+    category: archived
+    lifecycle: archived
+    visibility: private
+    urls: []
+    source_paths: []
+    dependencies: []
+    components: []

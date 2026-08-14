@@ -1,0 +1,1 @@
+"""Sites Hub application package."""

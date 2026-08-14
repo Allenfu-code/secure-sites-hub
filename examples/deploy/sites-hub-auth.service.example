@@ -1,0 +1,30 @@
+[Unit]
+Description=Secure Sites Hub authentication gateway
+After=network.target sites-hub-origin.service
+Requires=sites-hub-origin.service
+
+[Service]
+Type=simple
+User=sites-hub
+Group=sites-hub
+WorkingDirectory=/opt/secure-sites-hub
+EnvironmentFile=/etc/secure-sites-hub/sites-hub.env
+ExecStart=/opt/secure-sites-hub/.venv/bin/uvicorn --factory app.auth_gateway:create_app --host 127.0.0.1 --port 9621 --no-proxy-headers
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+ReadWritePaths=/var/lib/secure-sites-hub
+ReadOnlyPaths=/etc/secure-sites-hub
+
+[Install]
+WantedBy=multi-user.target

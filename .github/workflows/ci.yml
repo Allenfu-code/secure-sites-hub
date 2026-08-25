@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: test (${{ matrix.python-version }})
@@ -17,12 +21,12 @@ jobs:
       matrix:
         python-version: ["3.11", "3.13"]
     env:
-      TMPDIR: ${{ runner.temp }}
-      SITES_HUB_DATA_DIR: ${{ runner.temp }}/sites-hub-data
+      TMPDIR: /tmp
+      SITES_HUB_DATA_DIR: /tmp/sites-hub-data
       SITES_HUB_REGISTRY: sites.example.yaml
-      SITES_HUB_SESSION_SECRET_FILE: ${{ runner.temp }}/sites-hub-session-secret
-      SITES_HUB_AUTH_CACHE_FILE: ${{ runner.temp }}/sites-hub-auth-cache.json
-      SITES_HUB_AUTH_DB: ${{ runner.temp }}/sites-hub-accounts.sqlite3
+      SITES_HUB_SESSION_SECRET_FILE: /tmp/sites-hub-session-secret
+      SITES_HUB_AUTH_CACHE_FILE: /tmp/sites-hub-auth-cache.json
+      SITES_HUB_AUTH_DB: /tmp/sites-hub-accounts.sqlite3
       SITES_HUB_PUBLIC_HOST: sites.example.com
       SITES_HUB_DISCOVERY_ENABLED: "false"
       SITES_HUB_PROBES_ENABLED: "false"
@@ -49,10 +53,11 @@ jobs:
         run: ./scripts/smoke_test.sh
 
   audit:
+    name: dependency audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TMPDIR: ${{ runner.temp }}
+      TMPDIR: /tmp
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -68,6 +73,7 @@ jobs:
         run: pip-audit --requirement "${RUNNER_TEMP}/requirements.txt"
 
   secret-scan:
+    name: secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
